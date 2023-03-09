@@ -3,6 +3,7 @@ import http from "http"
 import { Server } from "socket.io"
 import morgan from "morgan"
 import cors from "cors"
+import { getTriviaById } from './controllers/trivia.controller'
 require('dotenv').config();
 
 const app = express()
@@ -21,6 +22,13 @@ app.use(morgan("dev"))
 io.on('connection', (socket)=>{
   console.log('user connected')
   console.log(socket.id)
+
+  socket.on("get-trivia", (data)=>{
+    console.log("get-trivia", data)
+    const res = getTriviaById(data.id)
+    console.log({res})
+    socket.emit("get-trivia-res", { res: res });
+  })
 })
 
 
