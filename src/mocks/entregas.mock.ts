@@ -29,12 +29,12 @@ const entregasChallenges = nock("http://0.0.0.0:8095")
 })
   
 const entregasUsersStaff = nock("http://0.0.0.0:8095")
-  .get("/api/v1.0/trivia/0/user/juli")
+  .get("/api/v1.0/trivia/0/user/santi")
   .reply(200, {
     username: "santi",
     name: "Santiago Barrios",
     is_staff: true,
-    role: "estudiante",
+    role: "profesor",
     score: 80,
     bonus: 40
   })
