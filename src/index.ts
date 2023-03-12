@@ -39,6 +39,36 @@ io.on("connection", (socket) => {
   });
 });
 
+if (process.env.TS_NODE_DEV) {
+  console.log("Enabling mocks");
+  
+  const {
+    desafiosMockDeclareVariable,
+    desafiosMockVariableType
+  } = require("./mocks/desafios.mock").default;
+
+  desafiosMockDeclareVariable.persist();
+  desafiosMockVariableType.persist();
+
+  const { 
+    entregasTriviaModerated,
+    entregasTriviaNotModerated,
+    entregasChallenges,
+    entregasUsersStaff,
+    entregasUsersNotStaff,
+    entregasGetResults,
+    entregasPostResults
+  } = require("./mocks/entregas.mock").default;
+
+  entregasTriviaModerated.persist();
+  entregasTriviaNotModerated.persist();
+  entregasChallenges.persist();
+  entregasUsersStaff.persist();
+  entregasUsersNotStaff.persist();
+  entregasGetResults.persist();
+  entregasPostResults.persist();
+}
+
 console.log(process.env.PORT);
 
 server.listen(process.env.PORT, () => {
