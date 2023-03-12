@@ -63,6 +63,7 @@ const desafiosMockVariableType = nock('http://0.0.0.0:8096')
     id: '0'
   })
   .reply(200, {
+    id: 339,
     challenge: variableType
   })
 
@@ -72,10 +73,30 @@ const desafiosMockDeclareVariable = nock('http://0.0.0.0:8096')
     id: '1'
   })
   .reply(200, {
+    id: 911,
     challenge: declareVariable
+  })
+
+const desafiosMockSubmitAnswers = nock('http://0.0.0.0:8096')
+  .post('/api/v1.0/trivias')
+  .query({
+    id: '0'
+  })
+  .reply(200, {
+    scores: [
+      {
+        username: 'santi',
+        score: 100,
+      },
+      {
+        username: 'juli',
+        score: 0,
+      }
+    ]
   })
 
 export default {
   desafiosMockDeclareVariable,
-  desafiosMockVariableType
+  desafiosMockVariableType,
+  desafiosMockSubmitAnswers
 };
