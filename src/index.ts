@@ -44,11 +44,13 @@ if (process.env.TS_NODE_DEV) {
   
   const {
     desafiosMockDeclareVariable,
-    desafiosMockVariableType
+    desafiosMockVariableType,
+    desafiosMockSubmitAnswers
   } = require("./mocks/desafios.mock").default;
 
   desafiosMockDeclareVariable.persist();
   desafiosMockVariableType.persist();
+  desafiosMockSubmitAnswers.persist();
 
   const { 
     entregasTriviaModerated,
