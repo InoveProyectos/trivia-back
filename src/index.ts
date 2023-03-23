@@ -28,38 +28,39 @@ io.on("connection", (socket) => {
     console.log({ data });
     try {
       const res: any = await getTriviaById(data.id);
-      console.log({ res });
-      res.status
-        ? socket.emit("get-triviaById-res", { res: res })
+      res.status == 200
+        ? socket.emit("get-triviaById-res", { res: res.data })
         : socket.emit("get-triviaById-res", { err: "Hubo problemas" });
+      return;
     } catch (err) {
       console.log(err);
-      socket.emit("get-triviaById-res", { err: "Hubo problemas" });
+      socket.emit("get-triviaById-res", { err: err });
+      return;
     }
   });
 });
 
 if (process.env.TS_NODE_DEV) {
   console.log("Enabling mocks");
-  
+
   const {
     desafiosMockDeclareVariable,
     desafiosMockVariableType,
-    desafiosMockSubmitAnswers
+    desafiosMockSubmitAnswers,
   } = require("./mocks/desafios.mock").default;
 
   desafiosMockDeclareVariable.persist();
   desafiosMockVariableType.persist();
   desafiosMockSubmitAnswers.persist();
 
-  const { 
+  const {
     entregasTriviaModerated,
     entregasTriviaNotModerated,
     entregasChallenges,
     entregasUsersStaff,
     entregasUsersNotStaff,
     entregasGetResults,
-    entregasPostResults
+    entregasPostResults,
   } = require("./mocks/entregas.mock").default;
 
   entregasTriviaModerated.persist();
