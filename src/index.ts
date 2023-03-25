@@ -3,7 +3,12 @@ import http from "http";
 import { Server } from "socket.io";
 import morgan from "morgan";
 import cors from "cors";
-import { getTriviaById } from "./controllers/trivia.controller";
+import {
+  getChallengesByIds,
+  getChallengesIds,
+  getTriviaById,
+} from "./controllers/trivia.controller";
+import { getUserByusername } from "./controllers/user.controller";
 
 require("dotenv").config();
 
@@ -35,6 +40,48 @@ io.on("connection", (socket) => {
     } catch (err) {
       console.log(err);
       socket.emit("get-triviaById-res", { err: err });
+      return;
+    }
+  });
+
+  socket.on("getUserByUsername", async (data) => {
+    console.log({ data });
+    try {
+      const res: any = await getUserByusername(data.username);
+      console.log(res);
+      res.status == 200
+        ? socket.emit("getUserByUsernameRes", { res: res.data })
+        : socket.emit("getUserByUsernameRes", { err: "Hubo problemas" });
+      return;
+    } catch (err) {
+      console.log(err);
+      socket.emit("getUserByUsernameRes", { err: err });
+      return;
+    }
+  });
+
+  socket.on("startTrivia", async (data) => {
+    try {
+      const res: any = await getChallengesIds(data.id);
+      console.log({ res });
+      if (res.status == 200) {
+        if (res.data.challenges.length > 0) {
+          const resChallenges: any = await getChallengesByIds(
+            res.data.challenges
+          );
+          console.log(resChallenges);
+          socket.emit("startTriviaRes", { res: resChallenges });
+          return;
+        } else {
+          socket.emit("startTriviaRes", { err: "Hubo problemas" });
+          return;
+        }
+      } else {
+        socket.emit("startTriviaRes", { err: "Hubo problemas" });
+      }
+      return;
+    } catch (err) {
+      console.log(err);
       return;
     }
   });
