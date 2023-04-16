@@ -19,15 +19,24 @@ const io = new Server(server, {
     origin: "http://127.0.0.1:5173",
   },
 });
+const state = {
+  idChallengeActual: 0,
+  estadoTrivia: 0, // 0 = ni iniciada, 1 = iniciada, 2 = finalizada
+};
 
 app.use(express.json());
 app.use(cors());
 
 app.use(morgan("dev"));
 
+console.log(state.idChallengeActual);
+
 io.on("connection", (socket) => {
   console.log("user connected");
-  console.log(socket.id);
+  // console.log(socket);
+  // console.log("Hay " + io.engine.clientsCount + " usuarios conectados");
+
+  io.emit("listenCountUsersConected", io.engine.clientsCount);
 
   socket.on("get-triviaById", async (data) => {
     console.log({ data });
@@ -70,7 +79,10 @@ io.on("connection", (socket) => {
             res.data.challenges
           );
           console.log(resChallenges);
-          socket.emit("startTriviaRes", { res: resChallenges });
+          io.emit("startTriviaRes", {
+            res: resChallenges,
+            idChallengeActual: state.idChallengeActual,
+          });
           return;
         } else {
           socket.emit("startTriviaRes", { err: "Hubo problemas" });
@@ -79,6 +91,39 @@ io.on("connection", (socket) => {
       } else {
         socket.emit("startTriviaRes", { err: "Hubo problemas" });
       }
+      return;
+    } catch (err) {
+      console.log(err);
+      return;
+    }
+  });
+
+  socket.on("nextChallenge", async () => {
+    try {
+      console.log(state.idChallengeActual);
+      state.idChallengeActual = state.idChallengeActual + 1;
+      console.log("Paso al sig challenge ", state.idChallengeActual);
+      io.emit("nextChallengeRes", {
+        idChallengeActual: state.idChallengeActual,
+      });
+
+      // const res: any = await getChallengesIds(data.id);
+      // console.log({ res });
+      // if (res.status == 200) {
+      //   if (res.data.challenges.length > 0) {
+      //     const resChallenges: any = await getChallengesByIds(
+      //       res.data.challenges
+      //     );
+      //     console.log(resChallenges);
+      //     socket.emit("startTriviaRes", { res: resChallenges });
+      //     return;
+      //   } else {
+      //     socket.emit("startTriviaRes", { err: "Hubo problemas" });
+      //     return;
+      //   }
+      // } else {
+      //   socket.emit("startTriviaRes", { err: "Hubo problemas" });
+      // }
       return;
     } catch (err) {
       console.log(err);
