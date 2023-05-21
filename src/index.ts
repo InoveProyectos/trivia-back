@@ -38,33 +38,49 @@ io.on("connection", (socket) => {
 
   io.emit("listenCountUsersConected", io.engine.clientsCount);
 
-  socket.on("get-triviaById", async (data) => {
+  socket.on("get-triviaById", async (data, callback) => {
     console.log({ data });
     try {
       const res: any = await getTriviaById(data.id);
       res.status == 200
-        ? socket.emit("get-triviaById-res", { res: res.data })
-        : socket.emit("get-triviaById-res", { err: "Hubo problemas" });
+        ? callback({ res: res.data })
+        : callback({ err: "Hubo problemas" });
       return;
     } catch (err) {
       console.log(err);
-      socket.emit("get-triviaById-res", { err: err });
+      callback({ err: err });
       return;
     }
   });
 
-  socket.on("getUserByUsername", async (data) => {
+  // socket.on("getUserByUsername", async (data) => {
+  //   console.log({ data });
+  //   try {
+  //     const res: any = await getUserByusername(data.username);
+  //     console.log(res);
+  //     res.status == 200
+  //       ? socket.emit("getUserByUsernameRes", { res: res.data })
+  //       : socket.emit("getUserByUsernameRes", { err: "Hubo problemas" });
+  //     return;
+  //   } catch (err) {
+  //     console.log(err);
+  //     socket.emit("getUserByUsernameRes", { err: err });
+  //     return;
+  //   }
+  // });
+
+  socket.on("getUserByUsername", async (data, callback) => {
     console.log({ data });
     try {
       const res: any = await getUserByusername(data.username);
       console.log(res);
       res.status == 200
-        ? socket.emit("getUserByUsernameRes", { res: res.data })
-        : socket.emit("getUserByUsernameRes", { err: "Hubo problemas" });
+        ? callback({ res: res.data })
+        : callback({ err: "Hubo problemas" });
       return;
     } catch (err) {
       console.log(err);
-      socket.emit("getUserByUsernameRes", { err: err });
+      callback({ err: err });
       return;
     }
   });
