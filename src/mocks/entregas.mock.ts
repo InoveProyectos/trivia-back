@@ -26,7 +26,6 @@ const entregasChallenges = nock("http://0.0.0.0:8095")
   .get("/api/v1.0/trivia/1/challenges")
   .reply(200, {
     challenges: [1, 0],
-    // challenges: [3, 20, 21, 49, 52],
   });
 
 const entregasUsersStaff = nock("http://0.0.0.0:8095")
