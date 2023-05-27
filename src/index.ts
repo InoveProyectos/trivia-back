@@ -23,6 +23,10 @@ const state = {
   idChallengeActual: 0,
   estadoTrivia: 0, // 0 = ni iniciada, 1 = iniciada, 2 = finalizada
 };
+let nameRoom = "";
+let usersInRoom: any;
+const trivias: any = {};
+const usersConected: any = {};
 
 app.use(express.json());
 app.use(cors());
@@ -32,42 +36,13 @@ app.use(morgan("dev"));
 console.log(state.idChallengeActual);
 
 io.on("connection", (socket) => {
+  const rooms = io.sockets.adapter.rooms;
+  const userId = socket.id;
+  usersConected[userId] = socket;
   console.log("user connected");
-  // console.log(socket);
-  // console.log("Hay " + io.engine.clientsCount + " usuarios conectados");
+  console.log("rooms", rooms);
 
-  io.emit("listenCountUsersConected", io.engine.clientsCount);
-
-  socket.on("get-triviaById", async (data, callback) => {
-    console.log({ data });
-    try {
-      const res: any = await getTriviaById(data.id);
-      res.status == 200
-        ? callback({ res: res.data })
-        : callback({ err: "Hubo problemas" });
-      return;
-    } catch (err) {
-      console.log(err);
-      callback({ err: err });
-      return;
-    }
-  });
-
-  // socket.on("getUserByUsername", async (data) => {
-  //   console.log({ data });
-  //   try {
-  //     const res: any = await getUserByusername(data.username);
-  //     console.log(res);
-  //     res.status == 200
-  //       ? socket.emit("getUserByUsernameRes", { res: res.data })
-  //       : socket.emit("getUserByUsernameRes", { err: "Hubo problemas" });
-  //     return;
-  //   } catch (err) {
-  //     console.log(err);
-  //     socket.emit("getUserByUsernameRes", { err: err });
-  //     return;
-  //   }
-  // });
+  socket.join("lobby");
 
   socket.on("getUserByUsername", async (data, callback) => {
     console.log({ data });
@@ -85,7 +60,36 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("startTrivia", async (data) => {
+  socket.on("get-triviaById", async (data, callback) => {
+    console.log({ data });
+    try {
+      const res: any = await getTriviaById(data.id);
+      if (res.status == 200) {
+        trivias[res.data.id] = res.data;
+        if (res.data.moderated) {
+          nameRoom = data.id + "MD";
+          socket.join(nameRoom); //creo la sala
+          usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
+          io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
+        } else {
+          nameRoom = data.id + data.username;
+          socket.join(nameRoom);
+          usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
+          io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
+        }
+        callback({ res: res.data });
+      } else {
+        callback({ err: "Hubo problemas" });
+      }
+      return;
+    } catch (err) {
+      console.log(err);
+      callback({ err: err });
+      return;
+    }
+  });
+
+  socket.on("startTrivia", async (data, callback) => {
     try {
       const res: any = await getChallengesIds(data.id);
       console.log({ res });
@@ -94,18 +98,30 @@ io.on("connection", (socket) => {
           const resChallenges: any = await getChallengesByIds(
             res.data.challenges
           );
-          console.log(resChallenges);
-          io.emit("startTriviaRes", {
-            res: resChallenges,
+          let params = {
+            challenges: resChallenges,
             idChallengeActual: state.idChallengeActual,
+          };
+          console.log(resChallenges);
+          let actualRoom =
+            data.id + (trivias[data.id].moderated ? "MD" : data.username);
+          io.to(actualRoom).emit("startTriviaRes", params); // envio a todos que arranquen la trivia
+          callback({
+            status: 200,
+            messaje: "Inicio de trivia exitoso",
+            // res: params, Creoq ue no hace falta retornartlos pro el callback ya que lo va a recibir con el otro evento
           });
-          return;
         } else {
-          socket.emit("startTriviaRes", { err: "Hubo problemas" });
-          return;
+          callback({
+            status: 500,
+            messaje: "No se pudo iniciar la trivia",
+          });
         }
       } else {
-        socket.emit("startTriviaRes", { err: "Hubo problemas" });
+        callback({
+          status: 500,
+          messaje: "No se pudo iniciar la trivia",
+        });
       }
       return;
     } catch (err) {
@@ -145,6 +161,11 @@ io.on("connection", (socket) => {
       console.log(err);
       return;
     }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Usuario desconectado:", socket.id);
+    io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
   });
 });
 
