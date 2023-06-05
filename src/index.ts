@@ -12,6 +12,15 @@ import { getUserByusername } from "./controllers/user.controller";
 
 require("dotenv").config();
 
+interface RoomState {
+  estadoTrivia: number; // 0 = no iniciada, 1 = iniciada, 2 = finalizada
+  estadoPregunta?: number; // 0 = esperando respuesta, 1 = respondida, 2 = validando respuesta
+  idChallengeActual: number;
+  challenges?: any;
+  trivia: any;
+  nameRoom: string;
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -19,21 +28,18 @@ const io = new Server(server, {
     origin: "http://127.0.0.1:5173",
   },
 });
-const state = {
-  idChallengeActual: 0,
-  estadoTrivia: 0, // 0 = ni iniciada, 1 = iniciada, 2 = finalizada
-};
 let nameRoom = "";
 let usersInRoom: any;
 const trivias: any = {};
 const usersConected: any = {};
+const roomState: Record<string, RoomState> = {};
 
 app.use(express.json());
 app.use(cors());
 
 app.use(morgan("dev"));
 
-console.log(state.idChallengeActual);
+// console.log(state.idChallengeActual);
 
 io.on("connection", (socket) => {
   const rooms = io.sockets.adapter.rooms;
@@ -68,7 +74,7 @@ io.on("connection", (socket) => {
         trivias[res.data.id] = res.data;
         if (res.data.moderated) {
           nameRoom = data.id + "MD";
-          socket.join(nameRoom); //creo la sala
+          socket.join(nameRoom);
           usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
           io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
         } else {
@@ -76,6 +82,14 @@ io.on("connection", (socket) => {
           socket.join(nameRoom);
           usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
           io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
+        }
+        if (!roomState[data.id]) {
+          roomState[data.id] = {
+            estadoTrivia: 0,
+            idChallengeActual: 0,
+            trivia: res.data,
+            nameRoom: nameRoom,
+          };
         }
         callback({ res: res.data });
       } else {
@@ -98,18 +112,20 @@ io.on("connection", (socket) => {
           const resChallenges: any = await getChallengesByIds(
             res.data.challenges
           );
+          if (!roomState[data.id].challenges) {
+            roomState[data.id].challenges = resChallenges;
+          }
           let params = {
-            challenges: resChallenges,
-            idChallengeActual: state.idChallengeActual,
+            challenges: resChallenges[roomState[data.id].idChallengeActual],
+            id: data.id,
           };
           console.log(resChallenges);
-          let actualRoom =
-            data.id + (trivias[data.id].moderated ? "MD" : data.username);
-          io.to(actualRoom).emit("startTriviaRes", params); // envio a todos que arranquen la trivia
+          roomState[data.id].estadoTrivia = 1;
+          roomState[data.id].estadoPregunta = 0;
+          io.to(roomState[data.id].nameRoom).emit("startTriviaRes", params); // envio a todos que arranquen la trivia
           callback({
             status: 200,
             messaje: "Inicio de trivia exitoso",
-            // res: params, Creoq ue no hace falta retornartlos pro el callback ya que lo va a recibir con el otro evento
           });
         } else {
           callback({
@@ -130,32 +146,13 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("nextChallenge", async () => {
+  socket.on("nextChallenge", async (data: any) => {
     try {
-      console.log(state.idChallengeActual);
-      state.idChallengeActual = state.idChallengeActual + 1;
-      console.log("Paso al sig challenge ", state.idChallengeActual);
-      io.emit("nextChallengeRes", {
-        idChallengeActual: state.idChallengeActual,
-      });
-
-      // const res: any = await getChallengesIds(data.id);
-      // console.log({ res });
-      // if (res.status == 200) {
-      //   if (res.data.challenges.length > 0) {
-      //     const resChallenges: any = await getChallengesByIds(
-      //       res.data.challenges
-      //     );
-      //     console.log(resChallenges);
-      //     socket.emit("startTriviaRes", { res: resChallenges });
-      //     return;
-      //   } else {
-      //     socket.emit("startTriviaRes", { err: "Hubo problemas" });
-      //     return;
-      //   }
-      // } else {
-      //   socket.emit("startTriviaRes", { err: "Hubo problemas" });
-      // }
+      roomState[data].idChallengeActual = roomState[data].idChallengeActual + 1;
+      io.to(roomState[data].nameRoom).emit(
+        "nextChallengeRes",
+        roomState[data].challenges[roomState[data].idChallengeActual]
+      );
       return;
     } catch (err) {
       console.log(err);
