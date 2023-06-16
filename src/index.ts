@@ -7,6 +7,7 @@ import {
   getChallengesByIds,
   getChallengesIds,
   getTriviaById,
+  getValidarPreguntas,
 } from "./controllers/trivia.controller";
 import { getUserByusername } from "./controllers/user.controller";
 
@@ -19,6 +20,7 @@ interface RoomState {
   challenges?: any;
   trivia: any;
   nameRoom: string;
+  players: Record<string, { res: number | null }>;
 }
 
 const app = express();
@@ -78,7 +80,7 @@ io.on("connection", (socket) => {
           usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
           io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
         } else {
-          nameRoom = data.id + data.username;
+          nameRoom = data.id + data.user.username;
           socket.join(nameRoom);
           usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
           io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
@@ -89,7 +91,18 @@ io.on("connection", (socket) => {
             idChallengeActual: 0,
             trivia: res.data,
             nameRoom: nameRoom,
+            players: {},
           };
+          if (data.user.role != "profesor") {
+            roomState[data.id].players[data.user.username] = { res: null };
+          }
+        } else {
+          if (
+            data.user.role != "profesor" &&
+            !roomState[data.id].players[data.user.username]
+          ) {
+            roomState[data.id].players[data.user.username] = { res: null };
+          }
         }
         callback({ res: res.data });
       } else {
@@ -144,6 +157,33 @@ io.on("connection", (socket) => {
       console.log(err);
       return;
     }
+  });
+
+  socket.on("validarPreguntas", async (data: any) => {
+    console.log({ data });
+    try {
+      const playersArray = Object.entries(roomState[data.id].players).map(
+        ([username, user]) => ({
+          id: username,
+          selected: [user.res],
+        })
+      );
+      console.log(playersArray);
+      roomState[data.id].players;
+      const res: any = await getValidarPreguntas(playersArray);
+      io.to(roomState[data.id].nameRoom).emit("validarPreguntasRes", res);
+    } catch (err) {
+      console.log(err);
+      return;
+    }
+  });
+
+  socket.on("ansSelected", (data: any) => {
+    roomState[data.id].players[data.userName] = { res: data.res };
+  });
+
+  socket.on("showLoader", (data: any) => {
+    io.to(roomState[data.id].nameRoom).emit("showLoaderRes", data.show);
   });
 
   socket.on("nextChallenge", async (data: any) => {
