@@ -53,3 +53,20 @@ export async function getChallengesByIds(ids: any) {
     return err;
   }
 }
+
+export async function getValidarPreguntas(playersArray: any) {
+  try {
+    console.log(playersArray);
+    const response = await axios.post(
+      `http://0.0.0.0:8096/api/trivia/session/3172`,
+      {
+        playersArray,
+      }
+    );
+    console.log(response.data);
+    return response.data;
+  } catch (err) {
+    console.log(err);
+    return err;
+  }
+}
