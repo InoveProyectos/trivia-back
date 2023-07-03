@@ -7,20 +7,23 @@ import {
   getChallengesByIds,
   getChallengesIds,
   getTriviaById,
-  getValidarPreguntas,
+  ValidarPreguntas,
 } from "./controllers/trivia.controller";
 import { getUserByusername } from "./controllers/user.controller";
 
 require("dotenv").config();
 
 interface RoomState {
-  estadoTrivia: number; // 0 = no iniciada, 1 = iniciada, 2 = finalizada
-  estadoPregunta?: number; // 0 = esperando respuesta, 1 = respondida, 2 = validando respuesta
+  estadoTrivia: number | null; // 0 = esperando jugadores, 1 = iniciada, 2 = finalizada
+  estadoPregunta?: number | null; // 0 = esperando res, 1 = validando respuesta
   idChallengeActual: number;
   challenges?: any;
   trivia: any;
   nameRoom: string;
   players: Record<string, { res: number | null }>;
+  moderators: string[];
+  resPlayers: string[];
+  usersInRoom: any;
 }
 
 const app = express();
@@ -30,9 +33,8 @@ const io = new Server(server, {
     origin: "http://127.0.0.1:5173",
   },
 });
-let nameRoom = "";
 let usersInRoom: any;
-const trivias: any = {};
+// const trivias: any = {};
 const usersConected: any = {};
 const roomState: Record<string, RoomState> = {};
 
@@ -55,12 +57,16 @@ io.on("connection", (socket) => {
   socket.on("getUserByUsername", async (data, callback) => {
     console.log({ data });
     try {
-      const res: any = await getUserByusername(data.username);
+      const res: any = await getUserByusername(data);
       console.log(res);
-      res.status == 200
-        ? callback({ res: res.data })
-        : callback({ err: "Hubo problemas" });
-      return;
+      if (usersConected[res.data.username]) {
+        usersConected[res.data.username] = socket;
+      }
+      if (res.status == 200) {
+        callback({ res: res.data });
+      } else {
+        throw new Error("Error");
+      }
     } catch (err) {
       console.log(err);
       callback({ err: err });
@@ -70,45 +76,65 @@ io.on("connection", (socket) => {
 
   socket.on("get-triviaById", async (data, callback) => {
     console.log({ data });
+    let nameRoom = "";
+    let resCallback: any = {};
     try {
-      const res: any = await getTriviaById(data.id);
-      if (res.status == 200) {
-        trivias[res.data.id] = res.data;
-        if (res.data.moderated) {
-          nameRoom = data.id + "MD";
-          socket.join(nameRoom);
-          usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
-          io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
-        } else {
-          nameRoom = data.id + data.user.username;
-          socket.join(nameRoom);
-          usersInRoom = io.sockets.adapter.rooms.get(nameRoom)?.size;
-          io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
-        }
-        if (!roomState[data.id]) {
+      if (!roomState[data.id]) {
+        const resServ: any = await getTriviaById(data.id);
+        resCallback = resServ.data;
+        if (resServ.status == 200) {
+          if (resCallback.moderated) {
+            nameRoom = data.id + "-MD";
+            socket.join(nameRoom);
+          } else {
+            nameRoom = data.id + data.user.username;
+            socket.join(nameRoom);
+          }
           roomState[data.id] = {
             estadoTrivia: 0,
             idChallengeActual: 0,
-            trivia: res.data,
+            trivia: resCallback,
             nameRoom: nameRoom,
             players: {},
+            moderators: [],
+            resPlayers: [],
+            usersInRoom,
           };
-          if (data.user.role != "profesor") {
+          io.to(roomState[data.id].nameRoom).emit(
+            "estadoTrivia",
+            roomState[data.id].estadoTrivia
+          );
+          if (data.user.role == "profesor") {
+            if (!roomState[data.id].moderators.includes(data.user.username)) {
+              roomState[data.id].moderators.push(data.user.username);
+            }
+          } else {
             roomState[data.id].players[data.user.username] = { res: null };
           }
         } else {
-          if (
-            data.user.role != "profesor" &&
-            !roomState[data.id].players[data.user.username]
-          ) {
+          throw new Error("El servicio no responde");
+        }
+      } else {
+        if (data.user.role == "profesor") {
+          if (!roomState[data.id].moderators.includes(data.user.username)) {
+            roomState[data.id].moderators.push(data.user.username);
+          }
+        } else {
+          if (!roomState[data.id].players[data.user.username]) {
             roomState[data.id].players[data.user.username] = { res: null };
           }
         }
-        callback({ res: res.data });
-      } else {
-        callback({ err: "Hubo problemas" });
+        socket.join(roomState[data.id].nameRoom);
+        resCallback = roomState[data.id].trivia;
       }
-      return;
+      roomState[data.id].usersInRoom = io.sockets.adapter.rooms.get(
+        roomState[data.id].nameRoom
+      )?.size;
+      io.to(roomState[data.id].nameRoom).emit(
+        "listenCountUsersConected",
+        roomState[data.id].usersInRoom
+      );
+      callback({ res: resCallback });
     } catch (err) {
       console.log(err);
       callback({ err: err });
@@ -131,30 +157,41 @@ io.on("connection", (socket) => {
           let params = {
             challenges: resChallenges[roomState[data.id].idChallengeActual],
             id: data.id,
+            moreQuestions: resChallenges[
+              roomState[data.id].idChallengeActual + 1
+            ]
+              ? true
+              : false,
           };
           console.log(resChallenges);
-          roomState[data.id].estadoTrivia = 1;
-          roomState[data.id].estadoPregunta = 0;
+          roomState[data.id].estadoTrivia = 1; //Iniciada
+          roomState[data.id].estadoPregunta = 0; //Esperando
+          io.to(roomState[data.id].nameRoom).emit(
+            "estadoTrivia",
+            roomState[data.id].estadoTrivia
+          );
+          io.to(roomState[data.id].nameRoom).emit(
+            "estadoPregunta",
+            roomState[data.id].estadoPregunta
+          );
           io.to(roomState[data.id].nameRoom).emit("startTriviaRes", params); // envio a todos que arranquen la trivia
           callback({
             status: 200,
             messaje: "Inicio de trivia exitoso",
           });
         } else {
-          callback({
-            status: 500,
-            messaje: "No se pudo iniciar la trivia",
-          });
+          throw new Error("No se pudo iniciar la trivia");
         }
       } else {
-        callback({
-          status: 500,
-          messaje: "No se pudo iniciar la trivia",
-        });
+        throw new Error("No se pudo iniciar la trivia");
       }
       return;
     } catch (err) {
       console.log(err);
+      callback({
+        status: 500,
+        messaje: err,
+      });
       return;
     }
   });
@@ -162,6 +199,7 @@ io.on("connection", (socket) => {
   socket.on("validarPreguntas", async (data: any) => {
     console.log({ data });
     try {
+      io.to(roomState[data.id].nameRoom).emit("showLoaderRes", true);
       const playersArray = Object.entries(roomState[data.id].players).map(
         ([username, user]) => ({
           id: username,
@@ -169,9 +207,14 @@ io.on("connection", (socket) => {
         })
       );
       console.log(playersArray);
-      roomState[data.id].players;
-      const res: any = await getValidarPreguntas(playersArray);
+      const res: any = await ValidarPreguntas(playersArray);
+      roomState[data.id].estadoPregunta = 2; //validando respuesta
+      io.to(roomState[data.id].nameRoom).emit(
+        "estadoPregunta",
+        roomState[data.id].estadoPregunta
+      );
       io.to(roomState[data.id].nameRoom).emit("validarPreguntasRes", res);
+      return;
     } catch (err) {
       console.log(err);
       return;
@@ -180,19 +223,39 @@ io.on("connection", (socket) => {
 
   socket.on("ansSelected", (data: any) => {
     roomState[data.id].players[data.userName] = { res: data.res };
+    roomState[data.id].estadoPregunta = 1;
+    if (!roomState[data.id].resPlayers.includes(data.userName)) {
+      roomState[data.id].resPlayers.push(data.userName);
+    }
+    io.to(roomState[data.id].nameRoom).emit(
+      "estadoPregunta",
+      roomState[data.id].estadoPregunta
+    );
+    io.to(roomState[data.id].nameRoom).emit(
+      "resPlayers",
+      roomState[data.id].resPlayers.length
+    );
+    return;
   });
 
-  socket.on("showLoader", (data: any) => {
-    io.to(roomState[data.id].nameRoom).emit("showLoaderRes", data.show);
-  });
+  // socket.on("showLoader", (data: any) => {
+  //   io.to(roomState[data.id].nameRoom).emit("showLoaderRes", data.show);
+  // });
 
-  socket.on("nextChallenge", async (data: any) => {
+  socket.on("nextChallenge", async (triviaId: any) => {
     try {
-      roomState[data].idChallengeActual = roomState[data].idChallengeActual + 1;
-      io.to(roomState[data].nameRoom).emit(
-        "nextChallengeRes",
-        roomState[data].challenges[roomState[data].idChallengeActual]
-      );
+      io.to(roomState[triviaId].nameRoom).emit("showLoaderRes", true);
+      roomState[triviaId].idChallengeActual =
+        roomState[triviaId].idChallengeActual + 1;
+      roomState[triviaId].estadoPregunta = 0; //validando respuesta
+      roomState[triviaId].players = {};
+      roomState[triviaId].resPlayers = [];
+      io.to(roomState[triviaId].nameRoom).emit("nextChallengeRes", {
+        challenge:
+          roomState[triviaId].challenges[roomState[triviaId].idChallengeActual],
+        estadoPregunta: roomState[triviaId].estadoPregunta,
+        cantResUsers: roomState[triviaId].resPlayers.length,
+      });
       return;
     } catch (err) {
       console.log(err);
@@ -202,7 +265,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("Usuario desconectado:", socket.id);
-    io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
+    // io.to(nameRoom).emit("listenCountUsersConected", usersInRoom);
   });
 });
 
