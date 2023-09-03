@@ -7,8 +7,8 @@ export async function getTriviaById(id: string) {
       `http://0.0.0.0:8095/api/v1.0/trivia/${id}`
       // `${process.env.BACKEND_URL}/trivia/${id}`
     );
-    console.log(id);
-    console.log(res);
+    // console.log(id);
+    // console.log(res);
     return res;
   } catch (err) {
     console.error({ err });
@@ -21,7 +21,7 @@ export async function getChallengesIds(id: string) {
     const res = await axios.get(
       `http://0.0.0.0:8095/api/v1.0/trivia/${id}/challenges`
     );
-    console.log(res);
+    // console.log(res);
     return res;
   } catch (err) {
     console.error({ err });

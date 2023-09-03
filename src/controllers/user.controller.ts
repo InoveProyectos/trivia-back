@@ -7,8 +7,8 @@ export async function getUserByusername(data: any) {
     const res = await axios.get(
       `http://0.0.0.0:8095/api/v1.0/trivia/0/user/${data.username}`
     );
-    console.log(data);
-    console.log(res);
+    // console.log(data);
+    // console.log(res);
     return res;
   } catch (err) {
     console.error("err");
