@@ -61,7 +61,7 @@ const variableType: Challenge = {
 const desafiosMockVariableType = nock("http://0.0.0.0:8096")
   .get("/api/v1.0/trivias")
   .query({
-    id: "0",
+    id: "2",
   })
   .reply(200, {
     id: 339,

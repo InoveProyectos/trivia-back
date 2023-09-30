@@ -28,6 +28,12 @@ const entregasChallenges = nock("http://0.0.0.0:8095")
     challenges: [1, 0],
   });
 
+  const entregasChallengesNotModerated = nock("http://0.0.0.0:8095")
+  .get("/api/v1.0/trivia/2/challenges")
+  .reply(200, {
+    challenges: [1, 0],
+  });
+
 const entregasUsersStaff = nock("http://0.0.0.0:8095")
   .get("/api/v1.0/trivia/0/user/santi")
   .reply(200, {
@@ -88,6 +94,7 @@ export default {
   entregasTriviaModerated,
   entregasTriviaNotModerated,
   entregasChallenges,
+  entregasChallengesNotModerated,
   entregasUsersStaff,
   entregasUsersNotStaff,
   entregasGetResults,
