@@ -132,6 +132,7 @@ io.on("connection", (socket) => {
         } else {
           socket.join(roomState[data.id].nameRoom);
           //llamar a la que le da el rol
+          nameRoom = roomState[data.id].nameRoom;
           getUserRole(data, roomState, nameRoom)
           if(roomState[data.id].estadoTrivia == 1){
             resCallback = {
@@ -195,13 +196,13 @@ io.on("connection", (socket) => {
           throw new Error("No es posible unirse a la trivia.")
         }
       }
-      roomState[userRoom].usersInRoom = io.sockets.adapter.rooms.get(
-        roomState[userRoom].nameRoom
-      )?.size;
-      io.to(userRoom).emit(
-        "listenCountUsersConected",
-        roomState[userRoom].usersInRoom
-      );
+      // roomState[userRoom].usersInRoom = io.sockets.adapter.rooms.get(
+      //   userRoom
+      // )?.size;
+      // io.to(userRoom).emit(
+      //   "listenCountUsersConected",
+      //   roomState[userRoom].usersInRoom
+      // );
       callback(resCallback);
     } catch (err) {
       // console.log(err);
